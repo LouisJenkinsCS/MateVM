@@ -29,7 +29,6 @@ module Compiler.Mate.Types
   ) where
 
 import Data.Int
-import Data.Functor
 import Data.Word
 import qualified Data.Map as M
 import qualified Data.IntervalMap as IM

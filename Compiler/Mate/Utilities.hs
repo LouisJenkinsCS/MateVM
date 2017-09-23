@@ -5,7 +5,6 @@ import Data.Word
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 import Data.List
-import Control.Monad
 
 import JVM.ClassFile
 

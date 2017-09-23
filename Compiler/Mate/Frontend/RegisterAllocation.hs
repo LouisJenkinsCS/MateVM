@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs, FlexibleContexts #-}
 module Compiler.Mate.Frontend.RegisterAllocation
   ( preeax
   , prexmm7
@@ -19,7 +19,6 @@ import Data.Word
 import Data.Maybe
 import Data.Ord
 
-import Control.Applicative
 import Control.Monad.State.Strict
 
 import Test.QuickCheck hiding (labels)

@@ -13,53 +13,52 @@ module Compiler.Mate.Frontend.MkGraph
   , mkMethod
   ) where
 
-import qualified Data.List as L
-import qualified Data.Set as S
-import qualified Data.Map as M
-import qualified Data.IntervalMap as IM
-import qualified Data.IntervalMap.Interval as IIM
-import qualified Data.ByteString.Lazy as B
-import Data.Int
-import Data.Word
-import Data.Maybe
+import qualified Data.ByteString.Lazy                      as B
+import           Data.Int
+import qualified Data.IntervalMap                          as IM
+import qualified Data.IntervalMap.Interval                 as IIM
+import qualified Data.List                                 as L
+import qualified Data.Map                                  as M
+import           Data.Maybe
+import qualified Data.Set                                  as S
+import           Data.Word
 
-import Control.Applicative hiding ((<*>))
-import Control.Monad
-import Control.Monad.State
-import Control.Arrow
+import           Control.Arrow
+import           Control.Monad.State
+import           Prelude                                   hiding ((<*>))
 
-import qualified JVM.Assembler as J
-import JVM.Assembler hiding (Instruction)
-import JVM.ClassFile
-import Compiler.Hoopl
-import Harpy hiding (Label, fst)
+import           Compiler.Hoopl
+import           Harpy                                     hiding (Label, fst)
+import           JVM.Assembler                             hiding (Instruction)
+import qualified JVM.Assembler                             as J
+import           JVM.ClassFile
 
-import Compiler.Mate.Debug
-import Compiler.Mate.Types
-import Compiler.Mate.Frontend.IR
-import Compiler.Mate.Frontend.RegisterAllocation
+import           Compiler.Mate.Debug
+import           Compiler.Mate.Frontend.IR
+import           Compiler.Mate.Frontend.RegisterAllocation
+import           Compiler.Mate.Types
 
-import Compiler.Mate.Backend.NativeSizes
+import           Compiler.Mate.Backend.NativeSizes
 
 -- import Debug.Trace
 
 data ParseState' = ParseState'
-  { labels :: M.Map Int32 Label {- store offset -> label -}
+  { labels          :: M.Map Int32 Label {- store offset -> label -}
 
-  , nextTargets :: [Label] {- only valid per block. needed for block fixups -}
+  , nextTargets     :: [Label] {- only valid per block. needed for block fixups -}
   , blockInterfaces :: M.Map Label [Var] {- store interface map for basic blocks -}
-  , blockEntries :: S.Set Int32 {- store block entries (data gained from first pass) -}
+  , blockEntries    :: S.Set Int32 {- store block entries (data gained from first pass) -}
 
-  , pcOffset :: Int32 {- programm counter -}
-  , stack :: [Var] {- simulation stack -}
-  , regcnt :: VRegNR {- counter for virtual registers -}
-  , classf :: Class Direct {- reference to class of processed method -}
-  , method :: Method Direct {- reference to processed method -}
-  , preRegs :: RegMapping
+  , pcOffset        :: Int32 {- programm counter -}
+  , stack           :: [Var] {- simulation stack -}
+  , regcnt          :: VRegNR {- counter for virtual registers -}
+  , classf          :: Class Direct {- reference to class of processed method -}
+  , method          :: Method Direct {- reference to processed method -}
+  , preRegs         :: RegMapping
 
-  , instructions :: [J.Instruction] {- instructions to process -}
-  , exceptionMap :: ExceptionMap Int32 {- map of try-blocks, with references to handler -}
-  , handlerStarts :: S.Set Int32 {- set of handler starts -}
+  , instructions    :: [J.Instruction] {- instructions to process -}
+  , exceptionMap    :: ExceptionMap Int32 {- map of try-blocks, with references to handler -}
+  , handlerStarts   :: S.Set Int32 {- set of handler starts -}
   }
 
 type ParseState a = StateT ParseState' SimpleUniqueMonad a
@@ -73,7 +72,7 @@ addExceptionBlocks = do
   -- split on a try block
   exKeys <- IM.keys <$> exceptionMap <$> get
   forM_ (map IIM.lowerBound exKeys) addPC
-  -- increment in order to get next block (cf. decrement in 
+  -- increment in order to get next block (cf. decrement in
   forM_ (map IIM.upperBound exKeys) $ addPC . (+1)
 
 -- forward references wouldn't be a problem, but backwards are
@@ -94,18 +93,18 @@ resolveReferences = do
   where
     addJumpTarget :: J.Instruction -> Int32 -> ParseState ()
     addJumpTarget ins pc = case ins of
-        (IF _ rel) -> addPCs pc rel ins
-        (IF_ICMP _ rel) -> addPCs pc rel ins
-        (IF_ACMP _ rel) -> addPCs pc rel ins
-        (IFNULL rel) -> addPCs pc rel ins
-        (IFNONNULL rel) -> addPCs pc rel ins
-        GOTO rel -> addPCs pc rel ins
-        JSR _ -> error "addJumpTarget: JSR?!"
-        GOTO_W _ -> error "addJumpTarget: GOTO_W?!"
-        JSR_W _ -> error "addJumpTarget: JSR_W?!"
-        TABLESWITCH _ def _ _ offs -> addSwitch pc def offs
+        (IF _ rel)                   -> addPCs pc rel ins
+        (IF_ICMP _ rel)              -> addPCs pc rel ins
+        (IF_ACMP _ rel)              -> addPCs pc rel ins
+        (IFNULL rel)                 -> addPCs pc rel ins
+        (IFNONNULL rel)              -> addPCs pc rel ins
+        GOTO rel                     -> addPCs pc rel ins
+        JSR _                        -> error "addJumpTarget: JSR?!"
+        GOTO_W _                     -> error "addJumpTarget: GOTO_W?!"
+        JSR_W _                      -> error "addJumpTarget: JSR_W?!"
+        TABLESWITCH _ def _ _ offs   -> addSwitch pc def offs
         LOOKUPSWITCH _ def _ switch' -> addSwitch pc def $ map snd switch'
-        _ -> return ()
+        _                            -> return ()
     addPCs :: Int32 -> Word16 -> J.Instruction -> ParseState ()
     addPCs pc rel ins = do
       addPC (pc + insnLength ins)
@@ -154,9 +153,7 @@ mkBlock = do
       apush (VReg (VR preeax JRef))
       return $ Just $ fromIntegral pc
     else return Nothing
-  let extable = map (second fromIntegral)
-                $ concatMap snd
-                $ handlermap `IM.containing` pc
+  let extable = map (second fromIntegral) $ concat $ handlermap `IM.containing` pc
   let f' = IRLabel l extable handlerStart
   -- fixup block boundaries
   be <- -- trace (printf "pc: %d\nhstart: %s\nextable: %s\n" pc (show handlerStart) (show extable)) $
@@ -346,7 +343,7 @@ fieldType :: Class Direct -> Word16 -> VarType
 fieldType cls off = fieldType2VarType $ ntSignature nt
   where nt = case constsPool cls M.! off of
                 (CField _ nt') -> nt'
-                _ -> error "fieldType: fail :("
+                _              -> error "fieldType: fail :("
 
 methodType :: Bool -> Class Direct -> Word16 -> ([VarType], Maybe VarType)
 methodType isVirtual cls off = (map fieldType2VarType argst', rett)
@@ -354,11 +351,11 @@ methodType isVirtual cls off = (map fieldType2VarType argst', rett)
     argst' = if isVirtual then ObjectType "this" : argst else argst
     (MethodSignature argst returnt) =
       case constsPool cls M.! off of
-        (CMethod _ nt') -> ntSignature nt'
+        (CMethod _ nt')      -> ntSignature nt'
         (CIfaceMethod _ nt') -> ntSignature nt'
-        _ -> error "methodType: fail :("
+        _                    -> error "methodType: fail :("
     rett = case returnt of
-            Returns ft -> Just (fieldType2VarType ft)
+            Returns ft  -> Just (fieldType2VarType ft)
             ReturnsVoid -> Nothing
 
 methodIsStatic :: Method Direct -> Bool
@@ -371,13 +368,13 @@ methodArgs meth = isStatic $ L.genericLength args
     isStatic = if methodIsStatic meth then (+0) else (+1)
 
 fieldType2VarType :: FieldType -> VarType
-fieldType2VarType IntType = JInt
-fieldType2VarType CharByte = JInt
-fieldType2VarType BoolType = JInt
-fieldType2VarType FloatType = JFloat
+fieldType2VarType IntType        = JInt
+fieldType2VarType CharByte       = JInt
+fieldType2VarType BoolType       = JInt
+fieldType2VarType FloatType      = JFloat
 fieldType2VarType (ObjectType _) = JRef
-fieldType2VarType (Array _ _) = JRef -- fieldType2VarType ty -- TODO
-fieldType2VarType x = error $ "fieldType2VarType: " ++ show x
+fieldType2VarType (Array _ _)    = JRef -- fieldType2VarType ty -- TODO
+fieldType2VarType x              = error $ "fieldType2VarType: " ++ show x
 
 -- tir = transform to IR
 tir :: J.Instruction -> ParseState [MateIR Var O O]
@@ -439,9 +436,9 @@ tir (LDC1 x) = tir (LDC2 (fromIntegral x))
 tir (LDC2 x) = do
   cls <- classf <$> get
   let valuetype = case constsPool cls M.! x of
-            (CString _) -> JRef
+            (CString _)  -> JRef
             (CInteger _) -> JInt
-            e -> error $ "tir: LDCI... missing impl.: " ++ show e
+            e            -> error $ "tir: LDCI... missing impl.: " ++ show e
   nv <- newvar valuetype
   apush nv
   return [IRLoad (RTPool x) JRefNull nv]
@@ -595,9 +592,9 @@ tirInvoke ct ident = do
   (targetreg, maybemov) <- case mret of
     Just x -> do
       let prereg = case x of
-                      JInt -> preeax
+                      JInt   -> preeax
                       JFloat -> prexmm7
-                      JRef -> preeax
+                      JRef   -> preeax
       let nv = VReg (VR prereg x)
       movtarget <- newvar x
       tracePipe (printf "return: %s@%s\n" (show prereg) (show x)) $
@@ -608,7 +605,7 @@ tirInvoke ct ident = do
           [IRInvoke (RTPoolCall ident []) targetreg ct, IRPrep RestoreRegs []]
   case maybemov of
     Nothing -> return r
-    Just m -> return $ r ++ [m]
+    Just m  -> return $ r ++ [m]
 
 maybeArgument :: Word8 -> VarType -> ParseState Var
 maybeArgument x t = do
@@ -629,8 +626,8 @@ maybeArgument x t = do
        _ -> do
          let assign = preArgs !! fromIntegral x
          let constr = case t of
-                  JRef -> SpillIReg
-                  JInt -> SpillIReg
+                  JRef   -> SpillIReg
+                  JInt   -> SpillIReg
                   JFloat -> error "can't happen"
          let tup = genVReg constr assign x JInt
          return (tup, assign)
@@ -646,9 +643,9 @@ tirLoad' x t = do
 
 nul :: VarType -> Var
 nul t = case t of
-  JInt -> JIntValue 0
+  JInt   -> JIntValue 0
   JFloat -> JFloatValue 0
-  JRef -> JRefNull
+  JRef   -> JRefNull
 
 tirLoad :: Word8 -> VarType -> ParseState [MateIR Var O O]
 tirLoad x t = do

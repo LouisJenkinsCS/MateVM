@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Compiler.Mate.Runtime.BlockAllocation where
 
-import Foreign hiding ((.&.),unsafePerformIO)
+import Foreign hiding ((.&.))
 import System.IO.Unsafe(unsafePerformIO)
 import Control.Monad
 import Control.Monad.Trans

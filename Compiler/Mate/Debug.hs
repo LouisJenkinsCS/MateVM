@@ -28,7 +28,7 @@ import System.IO
 import System.IO.Unsafe
 import Control.Monad
 import Control.Monad.State
-import Foreign hiding(unsafePerformIO)
+import Foreign
 
 {-# NOINLINE logHandle #-}
 -- TODO(bernhard): use MVar if threaded

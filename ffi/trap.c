@@ -6,13 +6,8 @@
 
 #define __USE_GNU
 // Note by hs: my signal.h includes sys/uconctext which conflicts with
-// asm/ucontext - this hack kinda solves the problem for me ;-) 
+// asm/ucontext - this hack kinda solves the problem for me ;-)
 // so feel free to blame me for that s**t
-#if defined __USE_XOPEN2K8
-#undef __USE_XOPEN2K8
-#define RESTORE
-#warning hs-hack: undefining __USE_XOPEN2K8 for signal.h
-#endif
 #include <signal.h>
 #ifdef RESTORE
 #define __USE_XOPEN2K8

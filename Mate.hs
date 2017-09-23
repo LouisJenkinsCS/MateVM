@@ -65,9 +65,9 @@ parseArgs _ _ = parseArgs ["-"] False
 
 
 executeMain :: B.ByteString -> Class Direct -> IO ()
-executeMain bclspath cls = do 
+executeMain bclspath cls = do
   --required on some platforms, initializes boehmgc. [todo bernhard: maybe this should be moved somewhere else - maybe at a global place where vm initialization takes place]
-  unless usePreciseGC initGC 
+  unless usePreciseGC initGC
 
   case find ((==) "main" . methodName) (classMethods cls) of
     Just m -> do
